@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Superhero Tetris</title>
+		<link rel=stylesheet type="text/css" href="css/stylesheet.css"/>
+	</head>
+<body>
+	<div id ="title">
+		<h1>Superhero Tetris</h1>
+	</div>
+	<div id="gameboard">	
+		<canvas id="canvas" width="320" height="640"></canvas>
+	</div>
+	
+	<div id="score">
+		<p>Lines Cleared: <span id="lines"></span></p>
+		<p>Best: <span id="best"></span></p>
+	</div>
+	
+	<div id="directions">
+		<h1>Directions</h1>
+		<p><span class="key">Left arrow:</span> move the piece to the left</p>
+		<p><span class="key">Right arrow:</span> move the piece to the right</p>
+		<p><span class="key">Down arrow:</span> move the piece down faster</p>
+		<p><span class="key">Up arrow:</span> rotate the piece counterclockwise</p>
+		<p><span class="key">Spacebar:</span> pause the game</p>
+	</div>
+	
+	<script type="text/javascript" src="js/pieces.js"></script>
+	
+	<script type="text/javascript">
+		var rows = 20;
+		var columns = 10;
+		var blockSize = 32;
+		
+		var canvas;
+		var context; //reference to 2D context of canvas
+		var lineSpan;
+		var best;
+		var gameData;
+
+		var blocksImg = new Image();
+		var gridImg = new Image();
+		var gameOverImg = new Image();
+		
+		var currentPiece;
+		var currentTime = 0;
+		var previousTime = 0;
+		var currentLines;	
+		
+		var isGameOver;
+		var isPaused;
+		
+		window.onload = onReady;
+		
+		function onReady() {
+		
+			//load images
+			blocksImg.src = "images/blocks.jpg";
+			gridImg.src = "images/grid.png";
+			gameOverImg.src = "images/over.png";
+			
+			//draw canvas		
+			canvas = document.getElementById("canvas");
+			context = canvas.getContext("2d");
+			lineSpan = document.getElementById("lines");
+			best = document.getElementById("best");
+						
+			//initialize game
+			initGame();
+
+			//get user input
+			document.onkeydown = getInput;
+		}
+		
+		function getInput(keyPressed) {
+		
+			if( !keyPressed ) {
+				var keyPressed = window.event;	//the last event that took place
+			}
+			
+			//don't scroll entire screen when arrows are pressed
+			event.preventDefault();
+			
+			if( !isGameOver ) {
+				switch( keyPressed.keyCode ) {
+				
+					//if the left arrow key is pressed
+					case 37: {
+						//check that that the piece can be moved left
+						if (checkMove(currentPiece.gridX - 1, currentPiece.gridY, currentPiece.currentShape) ) {
+							currentPiece.gridX--; // move the current piece left
+						}
+						break;
+					}
+					
+					
+					//if the right arrow key is pressed
+					case 39: {
+						//check that that the piece can be moved right
+						if (checkMove(currentPiece.gridX + 1, currentPiece.gridY, currentPiece.currentShape) ) {
+							currentPiece.gridX++; // move the current piece right
+						}
+						break;
+					}
+	
+					//if the up arrow key is pressed
+					case 38: { 				
+						var newShape = currentPiece.currentShape - 1;
+						if ( newShape < 0) {
+							newShape = currentPiece.shapes.length - 1;
+						}
+						//check that the piece can be flipped into the new shape 
+						if( checkMove(currentPiece.gridX, currentPiece.gridY, newShape) ) {
+							currentPiece.currentShape = newShape; //flip the piece into the new shape
+						} 
+						break;
+					}
+					
+					//if the down arrow key is pressed
+					case 40: {
+						//check that the current piece can be moved down
+						if (checkMove(currentPiece.gridX, currentPiece.gridY + 1, currentPiece.currentShape) ) {
+							currentPiece.gridY++; //move the current piece down
+						}
+						break;
+					}
+										
+					//if the spacebar is pressed
+					case 32: {
+						if(!isPaused) {
+							//pause the game
+							isPaused = true;
+						} else {
+							//unpause the game
+							isPaused = false;
+						}
+						break;
+					}
+				}
+			} else {
+				//restart the game
+				if (lineSpan.innerHTML > best.innerHTML) {
+					best.innerHTML = lineSpan.innerHTML;
+				}
+				var r = confirm("Play again?");
+				if (r) {
+					initGame();
+				}
+			}
+		}
+		
+		function initGame() {
+			isGameOver = false;
+			isPaused = false;
+			currentLines = 0;
+			
+						
+			if (gameData == undefined) {
+				gameData = new Array();
+				for(var r = 0; r < rows; r++ ) {
+					gameData[r] = new Array();
+					for (var c = 0; c < columns; c++ ) {
+						gameData[r].push(0);
+					}
+				}
+			} else {
+				for(var r = 0; r < rows; r++ ) {
+					for (var c = 0; c < columns; c++ ) {
+						gameData[r][c] = 0;
+					}
+				}
+			}
+			
+			currentPiece = getRandomPiece();
+			
+			lineSpan.innerHTML = currentLines.toString();
+			
+			var requestAnimFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame ||
+							window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
+									
+			window.requestAnimationFrame = requestAnimFrame;
+			
+			requestAnimationFrame(update);
+			
+		}
+		
+		function update() {
+			currentTime = new Date().getTime();
+			var interval = 120;
+			if( lineSpan.innerHTML < 38 ) {
+				interval = 500 - (10*lineSpan.innerHTML);
+			}
+									
+			if( currentTime - previousTime > interval  && !isPaused ) {
+				
+				//check if the current piece can move down
+				if( checkMove(currentPiece.gridX, currentPiece.gridY + 1, currentPiece.currentShape) ) {
+					currentPiece.gridY++; // move the current piece down
+				}
+				
+				//if it cannot move down
+				else { 
+					copyData(currentPiece); //draw the piece on the board
+					currentPiece = getRandomPiece(); //get a new piece
+				}
+				
+				//update time
+				previousTime = currentTime;
+			} 
+			
+			context.clearRect(0,0,320,640);
+			drawBoard();
+			drawPiece(currentPiece);
+	
+			if (!isGameOver ) {
+				requestAnimationFrame(update);	
+			} else {
+				
+				if( isGameOver ) {	
+					// gameover image
+					context.drawImage(gameOverImg, 0,0,320,640,0,0,320,640);
+				}
+			}
+		}
+		
+		function copyData(piece) {
+			var posX = piece.gridX;
+			var posY = piece.gridY;
+			var shape = piece.currentShape;
+			
+			for( var r = 0, len = piece.shapes[shape].length; r < len; r++) {
+				for( var c = 0, len2 = piece.shapes[shape][r].length; c < len2; c++) {
+					if( piece.shapes[shape][r][c] == 1 && posY >= 0 ) {
+						//copy the image to the game board
+						gameData[posY][posX] = (piece.color + 1);
+					}
+					posX++;
+				}
+				posX = piece.gridX;
+				posY++;
+			}
+			
+			//check if any lines should be cleared
+			checkLines();
+			
+			//check if game is over
+			if(piece.gridY < 0) {
+				isGameOver = true;
+			}
+		}
+		
+		function checkLines() {
+			var lineFound = false;
+			var fullRow = true;
+			var r = rows - 1;
+			var c = columns - 1;
+			
+			while( r >= 0 ) {
+				while( c >= 0 ) {
+					//the row isn't full if there is an empty cell
+					if ( gameData[r][c] == 0) {
+						fullRow = false;
+						c = -1; // move to next row
+					}
+					c--;
+				}
+				
+				if( fullRow ) {
+					zeroRow(r);
+					r++;
+					lineFound = true;
+					currentLines++;
+				}
+				
+				fullRow = true;
+				c = columns - 1;
+				r--;
+			}
+			//updates number of lines
+			if( lineFound ) {
+				lineSpan.innerHTML = currentLines.toString();
+			}
+		}
+		
+		function zeroRow(row) {
+			var r = row;
+			var c = 0;
+			
+			while( r >= 0 ) {
+				while( c < columns ) {
+					if( r > 0 ) {
+						gameData[r][c] = gameData[r-1][c];
+					} else {
+						gameData[r][c] = 0;
+					}
+					c++;
+				}
+				c = 0;
+				r--;
+			}
+		}
+		
+		function drawBoard() {
+			context.drawImage(gridImg, 0, 0, 320, 640, 0, 0, 320, 640);
+			
+			for(var r = 0; r < rows; r++ ) {
+					for (var c = 0; c < columns; c++ ) {	
+						if( gameData[r][c] != 0) {
+							context.drawImage(blocksImg, (gameData[r][c] - 1) * blockSize, 0, blockSize, blockSize, c*blockSize, r*blockSize, blockSize, blockSize);
+						}
+					}	
+			}
+		}
+		
+		function drawPiece(piece) {
+				var drawX = piece.gridX;
+				var drawY = piece.gridY;
+				var shape = piece.currentShape;
+				
+				for( var r = 0, len = piece.shapes[shape].length; r < len; r++) {
+					for( var c = 0, len2 = piece.shapes[shape][r].length; c < len2; c++) {
+						if( piece.shapes[shape][r][c] == 1 && drawY >= 0 ) {
+							//draw the image
+							context.drawImage(blocksImg, piece.color*blockSize, 0, blockSize, blockSize, drawX*blockSize, drawY*blockSize, blockSize, blockSize);
+						}
+						drawX++;
+					}
+					drawX = piece.gridX;
+					drawY++;
+				}
+		}
+		
+		function checkMove(posX, posY, newShape) {
+			var validMove = true;
+			var newX = posX;
+			var newY = posY;
+			
+			for( var r = 0, len = currentPiece.shapes[newShape].length; r < len; r++) {
+				for( var c = 0, len2 = currentPiece.shapes[newShape][r].length; c < len2; c++) {
+					
+					//check if it will be too far left or too far right
+					if( newX < 0 || newX >= columns ) {
+						validMove = false;
+						r = len;
+						c = len2;
+					}
+					
+					//check if it will be hitting another piece
+					if( gameData[newY] != undefined && gameData[newY][newX] !=0 && currentPiece.shapes[newShape][r] != undefined && currentPiece.shapes[newShape][r][c] != 0 ) {
+						validMove = false;
+						r = len;
+						c = len2;
+					}
+					newX++;
+				}
+				newX = posX;
+				newY++;
+				
+				//check if piece will be below the board
+				if( newY > rows ) {
+					validMove = false;
+					r = len;
+				}
+			}
+			return validMove;
+		}
+		
+	</script>
+	
+</body>
+</html>

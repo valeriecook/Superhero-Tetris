@@ -1,0 +1,33 @@
+body
+{
+	background-image:  url('../images/background.png');
+	background-size: cover;
+	font-family: sans-serif, verdana;
+	color: #FEFEFE;
+	font-size: 14pt;
+
+}
+
+#title {
+	text-align: center;
+	font-size: 32pt;
+}
+
+#gameboard {
+	width: 320px;
+	height: 640px;
+	margin: auto;
+	border: 16px solid #B8B8B8;
+}
+
+#score {
+	width: 350px;
+	font-size: 20pt;
+	margin: auto;
+}
+
+.key {
+	font-weight: bold;
+	color: #B8B8B8;
+}
+
